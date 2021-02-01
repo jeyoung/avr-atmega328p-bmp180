@@ -50,12 +50,10 @@
 /*
  * Starts the I2C processing
  */
-void bmp180_measure()
+void bmp180_measure(struct bmp180_measurements *measurements)
 {
     struct i2c_write_data write_data = { .state = W_NONE };
     struct i2c_read_data read_data = { .state = R_NONE };
-
-    struct bmp180_measurements measurements = { 0 };
 
     enum i2c_state i2c_state = NONE;
     enum measurements_state measurements_state = M_NONE;
@@ -80,26 +78,27 @@ void bmp180_measure()
 			measurements_state = M_READ_AC1_MSB;
 			break;
 
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC1, measurements.ac1, AC2)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC2, measurements.ac2, AC3)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC3, measurements.ac3, AC4)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC4, measurements.ac4, AC5)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC5, measurements.ac5, AC6)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC6, measurements.ac6, B1)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(B1, measurements.b1, B2)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(B2, measurements.b2, MB)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(MB, measurements.mb, MC)
-		    CALIBRATION_MEASUREMENTS_STATE_CASE(MC, measurements.mc, MD)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC1, measurements->ac1, AC2)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC2, measurements->ac2, AC3)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC3, measurements->ac3, AC4)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC4, measurements->ac4, AC5)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC5, measurements->ac5, AC6)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(AC6, measurements->ac6, B1)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(B1, measurements->b1, B2)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(B2, measurements->b2, MB)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(MB, measurements->mb, MC)
+		    CALIBRATION_MEASUREMENTS_STATE_CASE(MC, measurements->mc, MD)
 
 		    case M_READ_MD_MSB:
-			measurements.md = read_data.byte << 8;
+			measurements->md = read_data.byte << 8;
 			measurements_state = M_READ_MD_LSB;
 			break;
 
 		    case M_READ_MD_LSB:
-			measurements.md |= read_data.byte;
+			measurements->md |= read_data.byte;
 			measurements_state = M_MEASURE_UT;
 			break;
+
 		    case M_MEASURE_UT:
 			/*
 			 * Wait 5ms before reading
@@ -109,22 +108,13 @@ void bmp180_measure()
 			break;
 
 		    case M_READ_UT_MSB:
-			measurements.ut = read_data.byte << 8;
+			measurements->ut = read_data.byte << 8;
 			measurements_state = M_READ_UT_LSB;
 			break;
 
 		    case M_READ_UT_LSB:
-			measurements.ut |= read_data.byte;
+			measurements->ut |= read_data.byte;
 			measurements_state = M_MEASURE_UP;
-
-			/*
-			 * TODO (EY) Move this somewhere else
-			 */
-			int32_t x1 = ((int32_t) measurements.ut - (int32_t) measurements.ac6) * ((int32_t) measurements.ac5 >> 15);
-			int32_t x2 = ((int32_t) measurements.mc << 11) / (x1 + (int32_t) measurements.md);
-			int32_t b5 = x1 + x2;
-			measurements.temperature = ((b5 + 8) >> 4);
-
 			break;
 
 		    case M_MEASURE_UP:
@@ -136,16 +126,12 @@ void bmp180_measure()
 			break;
 
 		    case M_READ_UP_MSB:
-			measurements.up = read_data.byte << 8;
+			measurements->up = read_data.byte << 8;
 			measurements_state = M_READ_UP_LSB;
 			break;
 
 		    case M_READ_UP_LSB:
-			measurements.up |= read_data.byte;
-			measurements_state = M_RESULT;
-			break;
-
-		    case M_RESULT:
+			measurements->up |= read_data.byte;
 			measurements_state = M_STOP;
 			break;
 		}
@@ -180,10 +166,6 @@ void bmp180_measure()
 			case M_READ_UT_LSB:
 			case M_READ_UP_LSB:
 			    write_data.success_state = LSB_REGISTER;
-			    break;
-
-			case M_RESULT:
-			    write_data.success_state = RESULT;
 			    break;
 
 			CALIBRATION_SUCCESS_STATE_CASE(AC1)
@@ -235,7 +217,7 @@ void bmp180_measure()
 		if (write_data.state == W_NONE) {
 		    write_data.byte = 0x2E;
 		    write_data.bit_counter = 8;
-		    write_data.success_state = START;
+		    write_data.success_state = STOP_START;
 		    write_data.error_state = STOP;
 		    write_data.state = W_WRITE;
 		}
@@ -246,7 +228,7 @@ void bmp180_measure()
 		if (write_data.state == W_NONE) {
 		    write_data.byte = 0x34;
 		    write_data.bit_counter = 8;
-		    write_data.success_state = START;
+		    write_data.success_state = STOP_START;
 		    write_data.error_state = STOP;
 		    write_data.state = W_WRITE;
 		}
@@ -335,7 +317,7 @@ void bmp180_measure()
 		if (read_data.state == R_NONE) {
 		    read_data.bit_counter = 0;
 		    read_data.send_nack = 1;
-		    read_data.success_state = START;
+		    read_data.success_state = STOP_START;
 		    read_data.state = R_READ;
 		}
 		i2c_read(&read_data, &i2c_state);
@@ -345,7 +327,7 @@ void bmp180_measure()
 		if (read_data.state == R_NONE) {
 		    read_data.bit_counter = 0;
 		    read_data.send_nack = 1;
-		    read_data.success_state = START;
+		    read_data.success_state = STOP_START;
 		    read_data.state = R_READ;
 		}
 		i2c_read(&read_data, &i2c_state);
@@ -367,7 +349,7 @@ void bmp180_measure()
 		    read_data.byte = 0;
 		    read_data.bit_counter = 0;
 		    read_data.send_nack = 1;
-		    read_data.success_state = START;
+		    read_data.success_state = STOP_START;
 		    read_data.state = R_READ;
 		}
 		i2c_read(&read_data, &i2c_state);
@@ -385,23 +367,25 @@ void bmp180_measure()
 	    CALIBRATION_REGISTER_WRITE_CASE(MC, 0xBC, 0xBD)
 	    CALIBRATION_REGISTER_WRITE_CASE(MD, 0xBE, 0xBF)
 
-	    case RESULT:
-		if (write_data.state == W_NONE) {
-		    write_data.byte = measurements.temperature;
-		    write_data.bit_counter = 8;
-		    write_data.success_state = STOP;
-		    write_data.error_state = STOP;
-		    write_data.state = W_WRITE;
-		}
-		i2c_write(&write_data, &i2c_state);
-		break;
-
 	    case STOP:
 		i2c_stop();
+		break;
+
+	    case STOP_START:
+		i2c_stop();
+		i2c_state = START;
 		break;
 	}
     }
 
     measurements_state = M_NONE;
+    calculate_temperature(measurements);
 }
 
+void calculate_temperature(struct bmp180_measurements *measurements)
+{
+    int32_t x1 = (measurements->ut - measurements->ac6) * (measurements->ac5 / pow(2, 15));
+    int32_t x2 = (measurements->mc * pow(2, 11)) / (x1 + measurements->md);
+    int32_t b5 = x1 + x2;
+    measurements->temperature = ((b5 + 8) / pow(2, 4));
+}

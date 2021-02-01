@@ -13,8 +13,8 @@ MCU = atmega328p
 PART = m328p
 
 CFLAGS = -Os -DF_CPU=1000000UL $(INCLUDE_DIRS) -std=c11 -mmcu=$(MCU)
-LDFLAGS = -L/usr/lib/avr/lib -mmcu=$(MCU)
-OBJECTS = $(TARGET).o bmp180.o i2c.o
+LDFLAGS = -L/usr/lib/avr/lib/avr5 -mmcu=$(MCU)
+OBJECTS = $(TARGET).o bmp180.o i2c.o usi.o
 
 TARGET = main
 
