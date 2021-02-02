@@ -24,12 +24,11 @@
 #endif
 
 #ifndef BAUD_RATE
-#define BAUD_RATE 1000000
+#define BAUD_RATE 200000UL
 #endif
 
 #define PERIOD_TICKS (F_CPU/BAUD_RATE)
 #define HOLD _delay_us(PERIOD_TICKS);
-
 
 /*
  * Initialises the I2C
@@ -53,10 +52,13 @@ void i2c_start()
      * If this tick is missing, things break!
      */
     I2C |= (1 << SCL);
+    HOLD
     I2C &= ~(1 << SCL);
+    HOLD
 
     I2C |= (1 << SDA);
     I2C |= (1 << SCL);
+    HOLD
 }
 
 /*
@@ -65,8 +67,10 @@ void i2c_start()
 uint8_t i2c_ack()
 {
     I2C |= (1 << SCL);
+    HOLD
     I2C &= ~(1 << SDA);
     I2C &= ~(1 << SCL);
+    HOLD
     return (I2C_READ & (1 << SDA)) == 0;
 }
 
@@ -76,8 +80,10 @@ uint8_t i2c_ack()
 void i2c_ackm()
 {
     I2C |= (1 << SCL);
+    HOLD
     I2C |= (1 << SDA);
     I2C &= ~(1 << SCL);
+    HOLD
 }
 
 /*
@@ -86,8 +92,10 @@ void i2c_ackm()
 void i2c_nackm()
 {
     I2C |= (1 << SCL);
+    HOLD
     I2C &= ~(1 << SDA);
     I2C &= ~(1 << SCL);
+    HOLD
 }
 
 /*
@@ -96,9 +104,12 @@ void i2c_nackm()
 void i2c_stop()
 {
     I2C &= ~(1 << SCL);
+    HOLD
     I2C |= (1 << SCL);
+    HOLD
     I2C |= (1 << SDA);
     I2C &= ~(1 << SCL);
+    HOLD
     I2C &= ~(1 << SDA);
 }
 
@@ -113,12 +124,14 @@ void i2c_write(struct i2c_write_data *data, enum i2c_state *state)
 
 	case W_WRITE:
 	    I2C |= (1 << SCL);
+	    HOLD
 	    if (data->byte & 0x80) {
 		I2C &= ~(1 << SDA);
 	    } else {
 		I2C |= (1 << SDA);
 	    }
 	    I2C &= ~(1 << SCL);
+	    HOLD
 
 	    data->byte <<= 1;
 
@@ -162,7 +175,9 @@ void i2c_read(struct i2c_read_data *data, enum i2c_state *state)
 	    data->byte <<= 1;
 
 	    I2C |= (1 << SCL);
+	    HOLD
 	    I2C &= ~(1 << SCL);
+	    HOLD
 
 	    if (I2C_READ & (1 << SDA)) {
 		data->byte |= 0x01;
